@@ -1,0 +1,154 @@
+# Docker Compose project ka naam
+# Is project ke andar hum multiple services/containers run kar rahe hain.
+name: irctc-backend
+
+services:
+
+  # ----------------------------------------
+  # PostgreSQL Database
+  # ----------------------------------------
+  # Ye service PostgreSQL ka ek Docker container create karegi.
+  postgres:
+
+    # Docker Hub se PostgreSQL version 15 ka image use hoga.
+    # Image = container banane ka blueprint/template.
+    image: postgres:15
+
+    # Container ka custom naam.
+    # Is naam se hum container ko easily identify kar sakte hain.
+    container_name: postgres
+
+    # Agar container unexpectedly stop/crash ho jaye,
+    # Docker automatically ise restart karne ki koshish karega.
+    restart: always
+
+    # PostgreSQL ki initial configuration.
+    environment:
+
+      # PostgreSQL user ka naam
+      POSTGRES_USER: admin
+
+      # PostgreSQL user ka password
+      POSTGRES_PASSWORD: irctcpass
+
+      # PostgreSQL start hone par ye database create hoga.
+      POSTGRES_DB: postgres
+
+    # Port mapping:
+    # HOST_PORT : CONTAINER_PORT
+    #
+    # Iska matlab:
+    # Hum apne computer se localhost:5432 ke through
+    # PostgreSQL container ko access kar sakte hain.
+    ports:
+      - "5432:5432"
+
+    # PostgreSQL ka actual data container ke andar
+    # /var/lib/postgresql/data mein store hota hai.
+    #
+    # postgres_data ek Docker volume hai jo data ko persist karta hai.
+    # Agar container delete/recreate bhi ho jaye,
+    # volume ki wajah se database data normally safe rahega.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+  # ----------------------------------------
+  # pgAdmin
+  # ----------------------------------------
+  # pgAdmin PostgreSQL ko GUI/browser ke through
+  # manage karne ke liye use hota hai.
+  pgadmin:
+
+    # pgAdmin ka Docker image.
+    image: dpage/pgadmin4
+
+    # Container ka custom naam.
+    container_name: pgadmin
+
+    # pgAdmin ki initial login configuration.
+    environment:
+
+      # pgAdmin login email
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+
+      # pgAdmin login password
+      PGADMIN_DEFAULT_PASSWORD: admin
+
+    # Port mapping:
+    # HOST_PORT : CONTAINER_PORT
+    #
+    # Container ke andar pgAdmin port 80 par run karega.
+    # Hum apne computer par localhost:8081 se access karenge.
+    ports:
+      - "8081:80"
+
+    # pgAdmin PostgreSQL service par depend karta hai.
+    # Compose PostgreSQL ko pgAdmin se pehle start karega.
+    #
+    # Note:
+    # depends_on ka matlab ye nahi hai ki PostgreSQL fully ready
+    # hone ke baad hi pgAdmin start hoga.
+    depends_on:
+      - postgres
+
+
+  # ----------------------------------------
+  # Redis
+  # ----------------------------------------
+  # Redis ek in-memory data store hai.
+  # Backend mein caching, queues, sessions, etc. ke liye
+  # commonly use kiya jata hai.
+  redis:
+
+    # Redis Stack ka Docker image.
+    image: redis/redis-stack:6.2.6-v19
+
+    # Container ka custom naam.
+    container_name: redis
+
+    # Agar Redis container unexpectedly stop ho jaye,
+    # Docker automatically ise restart karne ki koshish karega.
+    restart: always
+
+    # Redis ki configuration.
+    environment:
+
+      # Redis ko password protected banaya ja raha hai.
+      # Redis ka password: irctcpass
+      REDIS_ARGS: "--requirepass irctcpass"
+
+    # Port mapping:
+    #
+    # 6379 = Redis ka default port
+    # 8001 = Redis Stack/Redis UI ke liye
+    #
+    # HOST_PORT : CONTAINER_PORT
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+
+    # Redis ka data /data directory mein store hota hai.
+    #
+    # redis_data Docker volume hai jo Redis ka data persist karega.
+    volumes:
+      - redis_data:/data
+
+
+# ----------------------------------------
+# Docker Volumes
+# ----------------------------------------
+# Yahan hum apne named volumes declare kar rahe hain.
+#
+# postgres_data:
+# PostgreSQL ka persistent data store karega.
+#
+# redis_data:
+# Redis ka persistent data store karega.
+#
+# Volumes containers se independent hote hain,
+# isliye container delete/recreate hone par bhi
+# data normally persist reh sakta hai.
+volumes:
+  postgres_data:
+  redis_data:
