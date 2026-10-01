@@ -35,4 +35,22 @@ class NotFoundError extends AppError {
     }
 }
 
-export { AppError, BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError};
+class ConflictError extends AppError {
+     constructor(message: string, code = 'CONFLICT') {
+          super(message, 409, code);
+     }
+}
+
+class TooManyRequestsError extends AppError {
+     constructor(message: string, code = 'TOO_MANY_REQUESTS') {
+          super(message, 429, code);
+     }
+}
+
+class InternalServerError extends AppError {
+     constructor(message: string = 'Internal Server Error', code = 'SERVER_ERROR') {
+          super(message, 500, code);
+     }
+}
+
+export { AppError, BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError, ConflictError, TooManyRequestsError, InternalServerError};

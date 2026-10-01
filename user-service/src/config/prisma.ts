@@ -1,6 +1,7 @@
 // Prisma Client ko import kar rahe hain.
 // Prisma database ke saath interact karne ke liye ORM provide karta hai.
-import { PrismaClient } from "@prisma/client/extension";
+// import { PrismaClient } from "@prisma/client/extension";
+import { PrismaClient } from "../generated/prisma/client.js";
 
 // PostgreSQL ke liye Prisma adapter.
 // Ye Prisma ko PostgreSQL database se connect karne mein help karta hai.

@@ -41,7 +41,7 @@ services:
     # Hum apne computer se localhost:5432 ke through
     # PostgreSQL container ko access kar sakte hain.
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
     # PostgreSQL ka actual data container ke andar
     # /var/lib/postgresql/data mein store hota hai.
