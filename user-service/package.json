@@ -19,6 +19,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.2",
     "@types/otp-generator": "^4.0.2",
     "@types/pg": "^8.23.1",
@@ -37,6 +38,7 @@
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
+    "jsonwebtoken": "^9.0.3",
     "otp-generator": "^4.0.1",
     "pg": "^8.23.0",
     "winston": "^3.19.0"

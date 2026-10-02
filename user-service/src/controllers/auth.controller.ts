@@ -1,8 +1,9 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
-import { BadRequestError } from "../utils/error";
+import { BadRequestError, UnauthorizedError } from "../utils/error";
 import { config } from "../config";
 import authService from "../services/auth.service";
+import { getDeviceFingerPrint } from "../utils/deviceFingerPrint";
 
 const OTP_TTL = parseInt(config.OTP_TTL || '300', 10);
 
@@ -46,5 +47,70 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
         message: "User Account is created successfully",
         data: user
     });
+});
+
+
+export const login = asyncHandler(async (req: Request, res: Response) => {
+    const { email, password } = req.body;
+
+    if(!email || !password) {
+        throw new BadRequestError("Email and password are required");
+    }
+
+    const deviceId = getDeviceFingerPrint(req);
+
+    const { accessToken, refreshToken, loggedInUser } = await authService.login(email, password, deviceId);
+
+    res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: config.ACCESS_TOKEN_EXP_SEC * 1000
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: config.REFRESH_TOKEN_EXP_SEC * 1000
+    });
+
+    return res.status(200).json({
+        success: true,
+        message: "User Loggedin successfully",
+        loggedInUser
+    });
+});
+
+
+export const rotateRefreshToken = asyncHandler(async (req: Request, res: Response) => {
+    const refreshToken = req.cookies.refreshToken;
+
+    if(!refreshToken) {
+        throw new UnauthorizedError("Refresh token is missing", "LOGIN AGAIN");
+    }
+
+    const deviceId = getDeviceFingerPrint(req);
+
+    const { newAccessToken, newRefreshToken } = await authService.rotateRefreshToken(refreshToken, deviceId);
+
+    res.cookie("accessToken", newAccessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: config.ACCESS_TOKEN_EXP_SEC * 1000
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: config.REFRESH_TOKEN_EXP_SEC * 1000
+    });
+
+    return res.status(200).json({
+        success: true,
+        message: "Access & Refresh token is reissued"
+    })
 });
 
