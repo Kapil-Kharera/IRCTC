@@ -4,6 +4,18 @@ import jwt from "jsonwebtoken";
 
 dotenv.config();
 
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+if (!GOOGLE_CLIENT_ID) {
+    throw new Error("GOOGLE_CLIENT_ID environment variable is required");
+}
+
+if (!GOOGLE_CLIENT_SECRET) {
+    throw new Error("GOOGLE_CLIENT_SECRET environment variable is required");
+}
+
 export const config = {
     SERVICE_NAME: packageJsonFile.name,
     PORT: Number(process.env.PORT) || 4001,
@@ -32,4 +44,7 @@ export const config = {
     ACCESS_TOKEN_EXP_SEC: Number(process.env.ACCESS_TOKEN_EXP_SEC || 900),
     REFRESH_TOKEN_EXP_SEC: Number(process.env.REFRESH_TOKEN_EXP_SEC || 604800),
     REDIS_USER_TTL: Number(process.env.REDIS_USER_TTL || 86400),
+
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET
 }

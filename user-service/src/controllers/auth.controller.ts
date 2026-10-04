@@ -10,11 +10,11 @@ const OTP_TTL = parseInt(config.OTP_TTL || '300', 10);
 export const sendOtp = asyncHandler(async (req: Request, res: Response) => {
     const { firstName, lastName, email, password, confirmPassword } = req.body;
 
-    if(!firstName || !lastName || !email || !password || !confirmPassword) {
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
         throw new BadRequestError("All fields are manadatory");
     }
 
-    if(password != confirmPassword) {
+    if (password != confirmPassword) {
         throw new BadRequestError("Password mismatch");
     }
 
@@ -36,7 +36,7 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
     const { otp } = req.body;
     const otpSessionId = req.cookies.otp_session;
 
-    if(!otp || !otpSessionId) {
+    if (!otp || !otpSessionId) {
         throw new BadRequestError("Otp or OtpSession is missing");
     }
 
@@ -53,7 +53,7 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
 export const login = asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
-    if(!email || !password) {
+    if (!email || !password) {
         throw new BadRequestError("Email and password are required");
     }
 
@@ -86,7 +86,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 export const rotateRefreshToken = asyncHandler(async (req: Request, res: Response) => {
     const refreshToken = req.cookies.refreshToken;
 
-    if(!refreshToken) {
+    if (!refreshToken) {
         throw new UnauthorizedError("Refresh token is missing", "LOGIN AGAIN");
     }
 
@@ -111,6 +111,39 @@ export const rotateRefreshToken = asyncHandler(async (req: Request, res: Respons
     return res.status(200).json({
         success: true,
         message: "Access & Refresh token is reissued"
-    })
+    });
+});
+
+
+export const verifyGoogleIdToken = asyncHandler(async (req: Request, res: Response) => {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+        throw new BadRequestError("Invalid google token", "INVALID TOKEN");
+    }
+
+    const deviceId = getDeviceFingerPrint(req);
+
+    const { accessToken, refreshToken, loggedInUser } = await authService.verifyGoogleIdToken(idToken, deviceId);
+
+    res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: config.ACCESS_TOKEN_EXP_SEC * 1000
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: config.REFRESH_TOKEN_EXP_SEC * 1000
+    });
+
+    return res.status(200).json({
+        success: true,
+        message: "Logged in successfully",
+        loggedInUser
+    });
 });
 
