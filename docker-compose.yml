@@ -136,6 +136,285 @@ services:
 
 
 # ----------------------------------------
+  # ZooKeeper
+  # ----------------------------------------
+  # ZooKeeper ek coordination service hai.
+  #
+  # Is Kafka setup mein Kafka ZooKeeper ka use karta hai
+  # cluster metadata aur coordination ke liye.
+  #
+  # Ye configuration ZooKeeper-based Kafka architecture use kar rahi hai.
+  # Modern Kafka versions mein ZooKeeper ke alternative ke roop mein
+  # KRaft mode bhi available hai, lekin abhi hum ZooKeeper use kar rahe hain.
+  zookeeper:
+
+    # Confluent ka ZooKeeper Docker image.
+    # Version 7.5.0 Kafka image ke version ke saath compatible hai.
+    image: confluentinc/cp-zookeeper:7.5.0
+
+    # Container ka custom naam.
+    # Kafka isi naam "zookeeper" se Docker network ke andar
+    # ZooKeeper ko access karega.
+    container_name: zookeeper
+
+    # Agar ZooKeeper unexpectedly stop/crash ho jaye,
+    # Docker automatically ise restart karne ki koshish karega.
+    restart: always
+
+    # ZooKeeper ki initial configuration.
+    environment:
+
+      # ZooKeeper clients ke liye port.
+      #
+      # Kafka isi port ke through ZooKeeper se connect karega.
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+      # ZooKeeper ka tick time milliseconds mein.
+      #
+      # 2000 = 2 seconds.
+      #
+      # Ye ZooKeeper ke internal timing/heartbeat mechanism
+      # mein use hota hai.
+      ZOOKEEPER_TICK_TIME: 2000
+
+    # Port mapping:
+    # HOST_PORT : CONTAINER_PORT
+    #
+    # Hum apne computer se localhost:2181 ke through
+    # ZooKeeper ko access kar sakte hain.
+    ports:
+      - "2181:2181"
+
+    # ZooKeeper ka data aur logs persist karne ke liye
+    # Docker named volumes use kiye ja rahe hain.
+    #
+    # zookeeper_data:
+    # ZooKeeper ka actual data store karega.
+    #
+    # zookeeper_logs:
+    # ZooKeeper ke logs store karega.
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+
+    # ZooKeeper ko irctc-network network mein add kar rahe hain.
+    #
+    # Is network ki wajah se Kafka container
+    # "zookeeper:2181" ke through ZooKeeper ko access kar sakta hai.
+    networks:
+      - irctc-network
+
+
+  # ----------------------------------------
+  # Kafka
+  # ----------------------------------------
+  # Kafka ek distributed event streaming/message broker hai.
+  #
+  # Backend services Kafka mein events/messages publish kar sakti hain
+  # aur doosri services un messages ko consume kar sakti hain.
+  #
+  # Example:
+  #
+  # Booking Service
+  #       |
+  #       | "Ticket Booked"
+  #       v
+  #     Kafka
+  #       |
+  #       +------> Notification Service
+  #       |
+  #       +------> Analytics Service
+  #
+  # Kafka mein messages topics ke andar store hote hain.
+  kafka:
+
+    # Confluent ka Kafka Docker image.
+    # Version 7.5.0 use ho raha hai.
+    image: confluentinc/cp-kafka:7.5.0
+
+    # Container ka custom naam.
+    container_name: kafka
+
+    # Agar Kafka unexpectedly stop/crash ho jaye,
+    # Docker automatically ise restart karne ki koshish karega.
+    restart: always
+
+    # Kafka ZooKeeper par depend karta hai.
+    #
+    # Isliye Compose Kafka container ko ZooKeeper ke baad
+    # start karne ki koshish karega.
+    #
+    # Note:
+    # depends_on ka matlab ye guarantee nahi karta ki
+    # ZooKeeper fully ready hone ke baad hi Kafka start hoga.
+    depends_on:
+      - zookeeper
+
+    # Kafka ke liye do ports expose kiye ja rahe hain.
+    #
+    # 9092:
+    # Docker network ke andar Kafka communication ke liye.
+    #
+    # 9093:
+    # Host machine se Kafka access karne ke liye.
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+
+    # Kafka ki main configuration.
+    environment:
+
+      # Kafka broker ki unique ID.
+      #
+      # Abhi hum single Kafka broker chala rahe hain,
+      # isliye broker ID = 1.
+      KAFKA_BROKER_ID: 1
+
+      # Kafka ko bataya ja raha hai ki ZooKeeper
+      # "zookeeper" naam ke container par port 2181 par available hai.
+      #
+      # Format:
+      # SERVICE_NAME : PORT
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      # Kafka clients ko bataya ja raha hai ki Kafka ko
+      # kis address par access kiya ja sakta hai.
+      #
+      # kafka:9092
+      # -> Docker network ke andar se Kafka access karne ke liye.
+      #
+      # localhost:9093
+      # -> Host machine/local computer se Kafka access karne ke liye.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+
+      # Kafka ke listeners ke security protocols define karta hai.
+      #
+      # Abhi dono listeners PLAINTEXT use kar rahe hain.
+      # Matlab local development setup mein connection encrypted/authenticated nahi hai.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+
+      # Kafka brokers ke beech internal communication ke liye
+      # PLAINTEXT listener use hoga.
+      #
+      # Abhi humare paas sirf ek broker hai,
+      # lekin future mein multiple brokers ho sakte hain.
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # Kafka ke internal consumer-offset topic ki
+      # replication factor.
+      #
+      # Abhi sirf ek broker hai,
+      # isliye replication factor = 1.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+      # Kafka transactions ke internal topic ke liye
+      # minimum number of in-sync replicas.
+      #
+      # Single broker development setup ke liye = 1.
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      # Kafka transaction state topic ki replication factor.
+      #
+      # Single broker setup mein = 1.
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+      # Agar koi topic manually create nahi kiya gaya,
+      # to Kafka automatically topic create kar sakta hai
+      # jab client us topic ko access kare.
+      #
+      # Development/learning ke liye convenient hai.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+    # Kafka ka actual data /var/lib/kafka/data mein store hota hai.
+    #
+    # kafka_data Docker named volume hai.
+    #
+    # Is volume ki wajah se Kafka container recreate hone ke baad
+    # Kafka ka data normally persist reh sakta hai.
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+    # Kafka ko irctc-network Docker network mein add kar rahe hain.
+    #
+    # Iski wajah se application/Kafka UI jaise containers
+    # "kafka:9092" ke through Kafka ko access kar sakte hain.
+    networks:
+      - irctc-network
+
+
+  # ----------------------------------------
+  # Kafka UI
+  # ----------------------------------------
+  # Kafka UI ek web-based graphical interface hai.
+  #
+  # Iske through hum browser mein Kafka cluster ko dekh sakte hain:
+  #
+  # - Kafka clusters
+  # - Topics
+  # - Messages
+  # - Partitions
+  # - Consumer Groups
+  # - Consumers
+  #
+  # Beginner ke liye Kafka ko samajhne aur debug karne mein
+  # Kafka UI bahut useful hai.
+  kafka-ui:
+
+    # Kafka UI ka Docker image.
+    image: provectuslabs/kafka-ui:latest
+
+    # Container ka custom naam.
+    container_name: kafka-ui
+
+    # Agar Kafka UI unexpectedly stop/crash ho jaye,
+    # Docker automatically ise restart karne ki koshish karega.
+    restart: always
+
+    # Kafka UI ko Kafka service par depend karna hai.
+    #
+    # Compose Kafka container ko Kafka UI se pehle
+    # start karne ki koshish karega.
+    #
+    # Note:
+    # Kafka fully ready hone ki guarantee depends_on nahi deta.
+    depends_on:
+      - kafka
+
+    # Port mapping:
+    # HOST_PORT : CONTAINER_PORT
+    #
+    # Kafka UI container ke andar port 8080 par run karega.
+    # Hum browser mein localhost:8080 open karke
+    # Kafka UI access kar sakte hain.
+    ports:
+      - "8080:8080"
+
+    # Kafka UI ki configuration.
+    environment:
+
+      # Kafka cluster ka UI mein display hone wala naam.
+      KAFKA_CLUSTERS_0_NAME: irctc-cluster
+
+      # Kafka UI ko bataya ja raha hai ki Kafka broker
+      # Docker network ke andar "kafka:9092" par available hai.
+      #
+      # IMPORTANT:
+      # Yahan localhost:9093 nahi use karna,
+      # kyunki Kafka UI khud Docker container ke andar run ho raha hai.
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+      # Kafka UI ko ZooKeeper ka address.
+      #
+      # ZooKeeper Docker network ke andar
+      # "zookeeper:2181" par available hai.
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+    # Kafka UI ko same Docker network mein add kar rahe hain
+    # jahan Kafka aur ZooKeeper available hain.
+    networks:
+      - irctc-network
+
+# ----------------------------------------
 # Docker Volumes
 # ----------------------------------------
 # Yahan hum apne named volumes declare kar rahe hain.
@@ -152,3 +431,11 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:
+
+#Docker networks
+networks:
+  irctc-network:
+    driver: bridge

@@ -1,5 +1,4 @@
 import { prisma } from "../config/prisma"
-import { sendOtpMail, verifyOtpMail } from "../utils/email";
 import { BadRequestError, ConflictError, ForbiddenError, UnauthorizedError } from "../utils/error";
 import bcrypt from "bcrypt";
 import { generateAndStoreOtp, verifyOtpAndSessionId } from "../utils/otp";
@@ -8,6 +7,8 @@ import jwt from "jsonwebtoken";
 import { redis } from "../config/redis";
 import { config } from "../config";
 import { OAuth2Client } from "google-auth-library";
+import { notificationProducer } from "../kafka/producer/notification.producer";
+import { logger } from "../config/logger";
 
 const client = new OAuth2Client(config.GOOGLE_CLIENT_ID);
 
@@ -28,7 +29,12 @@ const sendOTP = async (firstName: string, lastName: string, email: string, passw
 
     const { otp, otpSessionId } = await generateAndStoreOtp(meta);
 
-    await sendOtpMail(otp, email);
+    //initially sending the otp in synchronous way
+    // await sendOtpMail(otp, email);
+
+    //now send it via - kafka - asynchronous way.
+    await notificationProducer.sendOtpMail(email, otp, (Number(config.OTP_TTL)) / 60);
+    logger.info(`OTP email queued for ${email}`);
 
     return otpSessionId;
 }
@@ -51,7 +57,11 @@ const verifyOTP = async (otp: string, otpSessionId: string) => {
         }
     });
 
-    await verifyOtpMail(meta);
+    //initially verifying the otp in synchronous way
+    // await verifyOtpMail(meta);
+
+    await notificationProducer.sendWelcomeEmail(meta.email, meta.firstName);
+    logger.info(`Verify OTP email queued for ${meta.email}`);
 
     return user;
 }
