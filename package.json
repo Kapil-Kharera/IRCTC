@@ -9,6 +9,7 @@
   "workspaces": [
     "user-service",
     "notification-service",
+    "api-gateway",
     "shared"
   ],
   "repository": {

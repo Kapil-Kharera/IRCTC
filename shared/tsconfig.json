@@ -8,8 +8,9 @@
     "strict": true,
     "declaration": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+      "emitDeclarationOnly": false
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

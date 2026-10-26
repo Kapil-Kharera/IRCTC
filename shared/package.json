@@ -8,10 +8,11 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./types/express": "./dist/types/express.d.ts"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && xcopy src\\types\\*.d.ts dist\\types\\ /Y"
   },
   "keywords": [],
   "author": "",
