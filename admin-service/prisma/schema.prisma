@@ -1,0 +1,117 @@
+// Generates the Prisma Client used by the application.
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Database connection is configured through prisma.config.ts (Prisma 7).
+datasource db {
+  provider = "postgresql"
+}
+
+// Railway stations. A station can belong to multiple routes.
+model Station {
+  id        String   @id @default(uuid()) // Primary key; generated automatically.
+  name      String   @unique              // Station name must be unique.
+  code      String   @unique              // Unique station code, e.g. NDLS.
+  city      String
+  state     String?
+  createdAt DateTime @default(now())      // Record creation timestamp.
+  updatedAt DateTime @updatedAt           // Automatically updated on changes.
+
+  routeStations RouteStation[] // Routes passing through this station.
+
+  @@index([name]) // Speeds up station-name lookups.
+  @@index([code]) // Speeds up station-code lookups.
+  @@map("stations") // Actual PostgreSQL table name.
+}
+
+// Train details. Each train has one route and multiple schedules.
+model Train {
+  id          String   @id @default(uuid())
+  trainNumber String   @unique // Unique train number, e.g. 12301.
+  trainName   String
+  coachName   String   @default("AC")
+  totalSeats  Int      // Total seats available in this train's coach.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seats     Seat[]
+  route     Route?
+  schedules Schedule[]
+
+  @@map("trains")
+}
+
+// Allowed seat categories.
+enum SeatType {
+  LOWER
+  MIDDLE
+  UPPER
+  SIDE_LOWER
+  SIDE_UPPER
+}
+
+// Seats belonging to a train.
+model Seat {
+  id         String   @id @default(uuid())
+  trainId    String
+  seatNumber SeatType // Category, not a unique physical seat number.
+  price      Float
+
+  // Delete a train's seats when the train is deleted.
+  train Train @relation(fields: [trainId], references: [id], onDelete: Cascade)
+
+  @@unique([trainId, seatNumber]) // One seat per category per train.
+  @@map("seats")
+}
+
+// One route per train; contains an ordered list of stations.
+model Route {
+  id      String @id @default(uuid())
+  trainId String @unique // Enforces one route per train.
+
+  train         Train         @relation(fields: [trainId], references: [id], onDelete: Cascade)
+  routeStations RouteStation[]
+
+  @@map("routes")
+}
+
+// Junction table connecting routes and stations, with journey details.
+model RouteStation {
+  id               String  @id @default(uuid())
+  routeId          String
+  stationId        String
+  sequenceNumber   Int     // Station order along the route: 1, 2, 3...
+  arrivalTime      String? // Null when arrival time is unavailable.
+  departureTime    String? // Null for the final station.
+  distanceFromOrigin Float @default(0) // Used for distance-based fare calculation.
+
+  route   Route   @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, sequenceNumber]) // No duplicate position in a route.
+  @@unique([routeId, stationId])      // No repeated station in a route.
+  @@map("route_stations")
+}
+
+// A train's operating instance on a particular date.
+model Schedule {
+  id            String         @id @default(uuid())
+  trainId       String
+  departureDate DateTime       @db.Date // Stores date only, without time.
+  status        ScheduleStatus @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  train Train @relation(fields: [trainId], references: [id], onDelete: Cascade)
+
+  @@unique([trainId, departureDate]) // One schedule per train per date.
+  @@map("schedules")
+}
+
+// Allowed schedule states.
+enum ScheduleStatus {
+  ACTIVE
+  CANCELLED
+}
